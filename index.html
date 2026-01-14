@@ -347,6 +347,13 @@ function getWorkoutDuration() {
   return formatTime(elapsed);
 }
 
+function updateTimerDisplay() {
+  const timerEl = document.getElementById('workout-timer');
+  if (timerEl) {
+    timerEl.textContent = getWorkoutDuration();
+  }
+}
+
 // ============ WORKOUT FUNCTIONS ============
 function startWorkout(name, exercises) {
   state.currentWorkout = {
@@ -363,7 +370,7 @@ function startWorkout(name, exercises) {
     }))
   };
   state.workoutStartTime = Date.now();
-  workoutInterval = setInterval(render, 1000);
+  workoutInterval = setInterval(updateTimerDisplay, 1000);
   state.activeTab = 'workout';
   autoFillFromHistory();
   render();
@@ -572,6 +579,14 @@ const icons = {
 
 // ============ RENDER ============
 function render() {
+  // Save scroll position and focused element
+  const scrollY = window.scrollY;
+  const activeEl = document.activeElement;
+  const activeId = activeEl?.id || null;
+  const activeDataId = activeEl?.dataset?.inputId || null;
+  const selectionStart = activeEl?.selectionStart;
+  const selectionEnd = activeEl?.selectionEnd;
+  
   const app = document.getElementById('app');
   
   app.innerHTML = `
@@ -582,7 +597,7 @@ function render() {
         <span class="logo-text">M Fitness</span>
       </div>
       <div class="header-right">
-        ${state.currentWorkout ? `<span class="workout-timer">${icons.clock} ${getWorkoutDuration()}</span>` : ''}
+        ${state.currentWorkout ? `<span class="workout-timer">${icons.clock} <span id="workout-timer">${getWorkoutDuration()}</span></span>` : ''}
         <button class="theme-toggle" onclick="toggleTheme()">
           ${state.settings.theme === 'dark' ? icons.sun : icons.moon}
         </button>
@@ -617,6 +632,20 @@ function render() {
     <!-- Rest Timer Overlay -->
     ${state.restTimer.active ? renderRestTimer() : ''}
   `;
+  
+  // Restore scroll position
+  window.scrollTo(0, scrollY);
+  
+  // Restore focus
+  if (activeDataId) {
+    const el = document.querySelector(`[data-input-id="${activeDataId}"]`);
+    if (el) {
+      el.focus();
+      if (typeof selectionStart === 'number') {
+        el.setSelectionRange(selectionStart, selectionEnd);
+      }
+    }
+  }
 }
 
 function renderTab() {
@@ -756,9 +785,13 @@ function renderStrengthExercise(ex, exIdx) {
             style="height:44px;background:${SET_TYPES.find(t=>t.id===set.type)?.color || 'var(--primary)'}33;border:none;border-radius:8px;color:${SET_TYPES.find(t=>t.id===set.type)?.color || 'var(--primary)'};font-weight:600;font-size:13px;cursor:pointer;">
             ${set.type}
           </button>
-          <input type="number" inputmode="decimal" value="${set.weight}" placeholder="0" onchange="updateSet(${exIdx},${setIdx},'weight',this.value)"
+          <input type="number" inputmode="decimal" value="${set.weight}" placeholder="0" 
+            data-input-id="weight-${exIdx}-${setIdx}"
+            oninput="updateSet(${exIdx},${setIdx},'weight',this.value)"
             style="height:44px;background:var(--bg-input);border:none;border-radius:8px;color:var(--text);text-align:center;font-size:16px;width:100%;">
-          <input type="number" inputmode="numeric" value="${set.reps}" placeholder="0" onchange="updateSet(${exIdx},${setIdx},'reps',this.value)"
+          <input type="number" inputmode="numeric" value="${set.reps}" placeholder="0" 
+            data-input-id="reps-${exIdx}-${setIdx}"
+            oninput="updateSet(${exIdx},${setIdx},'reps',this.value)"
             style="height:44px;background:var(--bg-input);border:none;border-radius:8px;color:var(--text);text-align:center;font-size:16px;width:100%;">
           <button onclick="toggleSetComplete(${exIdx},${setIdx})"
             style="height:44px;width:44px;background:${set.completed ? 'var(--success)' : 'var(--bg-input)'};border:none;border-radius:8px;color:${set.completed ? '#fff' : 'var(--text-dim)'};cursor:pointer;">
@@ -790,17 +823,23 @@ function renderCardioExercise(ex, exIdx) {
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
         <div>
           <label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px;">DURATION</label>
-          <input type="text" value="${ex.duration}" placeholder="mm:ss" onchange="updateCardio(${exIdx},'duration',this.value)"
+          <input type="text" value="${ex.duration}" placeholder="mm:ss" 
+            data-input-id="cardio-duration-${exIdx}"
+            oninput="updateCardio(${exIdx},'duration',this.value)"
             style="width:100%;height:44px;background:var(--bg-input);border:none;border-radius:8px;color:var(--text);text-align:center;font-size:16px;">
         </div>
         <div>
           <label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px;">DISTANCE (km)</label>
-          <input type="number" inputmode="decimal" value="${ex.distance}" placeholder="0" onchange="updateCardio(${exIdx},'distance',this.value)"
+          <input type="number" inputmode="decimal" value="${ex.distance}" placeholder="0" 
+            data-input-id="cardio-distance-${exIdx}"
+            oninput="updateCardio(${exIdx},'distance',this.value)"
             style="width:100%;height:44px;background:var(--bg-input);border:none;border-radius:8px;color:var(--text);text-align:center;font-size:16px;">
         </div>
         <div>
           <label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px;">CALORIES</label>
-          <input type="number" inputmode="numeric" value="${ex.calories}" placeholder="0" onchange="updateCardio(${exIdx},'calories',this.value)"
+          <input type="number" inputmode="numeric" value="${ex.calories}" placeholder="0" 
+            data-input-id="cardio-calories-${exIdx}"
+            oninput="updateCardio(${exIdx},'calories',this.value)"
             style="width:100%;height:44px;background:var(--bg-input);border:none;border-radius:8px;color:var(--text);text-align:center;font-size:16px;">
         </div>
       </div>
