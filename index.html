@@ -28,18 +28,18 @@
     }
     
     .light-mode {
-      --primary: #d4708a;
-      --primary-light: #e896ad;
-      --primary-dim: rgba(212, 112, 138, 0.18);
-      --success: #4a9f7f;
-      --warning: #c9a040;
-      --danger: #c75050;
-      --bg: #faf8f9;
+      --primary: #c4476a;
+      --primary-light: #d86a8a;
+      --primary-dim: rgba(196, 71, 106, 0.2);
+      --success: #2d8a62;
+      --warning: #b8860b;
+      --danger: #c44040;
+      --bg: #f5f0f2;
       --bg-card: #ffffff;
-      --bg-input: #f0eaed;
-      --text: #2d2830;
-      --text-dim: #5a5058;
-      --border: rgba(212, 112, 138, 0.35);
+      --bg-input: #e8e0e4;
+      --text: #1a1518;
+      --text-dim: #4a4048;
+      --border: rgba(196, 71, 106, 0.4);
     }
     
     body {
@@ -175,6 +175,18 @@
 <body>
 <div id="app"></div>
 <script>
+// ============ HELPERS ============
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function startWorkoutFromData(dataKey) {
+  const data = window._workoutData[dataKey];
+  if (data) startWorkout(data.name, data.exercises);
+}
+
+window._workoutData = {};
+
 // ============ DATA ============
 const EXERCISES = {
   glutes: {
@@ -713,6 +725,15 @@ function renderWorkoutTab() {
 
 function renderStartWorkout() {
   const program = PROGRAMS[state.selectedProgram];
+  
+  // Store workout data for click handlers
+  program.days.forEach((day, i) => {
+    window._workoutData['program_' + i] = { name: program.name + ' - ' + day.name, exercises: day.exercises };
+  });
+  state.workouts.slice(0, 5).forEach(w => {
+    window._workoutData['repeat_' + w.id] = { name: w.name, exercises: w.exercises.map(e => e.name) };
+  });
+  
   return `
     <div class="card">
       <div class="card-title">${icons.play} Start Workout</div>
@@ -722,7 +743,7 @@ function renderStartWorkout() {
       
       <div style="color:var(--text-dim);font-size:13px;margin:16px 0 8px;">From ${program.name}:</div>
       ${program.days.map((day, i) => `
-        <button onclick="startWorkout('${program.name} - ${day.name}', ${JSON.stringify(day.exercises).replace(/'/g, "\\'")})" 
+        <button onclick="startWorkoutFromData('program_${i}')" 
           style="width:100%;padding:14px 16px;background:var(--bg-input);border:none;border-radius:12px;color:var(--text);font-size:14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <span>${day.name}</span>
           <span style="color:var(--text-dim);font-size:12px;">${day.exercises.length} exercises</span>
@@ -739,7 +760,7 @@ function renderStartWorkout() {
           <div style="background:var(--bg-input);border-radius:10px;margin-bottom:8px;overflow:hidden;">
             <div onclick="toggleWorkoutExpand(${w.id})" style="padding:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
               <div>
-                <div style="font-weight:500;margin-bottom:4px;">${w.name}</div>
+                <div style="font-weight:500;margin-bottom:4px;">${escapeHtml(w.name)}</div>
                 <div style="font-size:12px;color:var(--text-dim);">
                   ${new Date(w.date).toLocaleDateString('el-GR')} • ${w.exercises.length} exercises ${w.duration ? '• ' + formatTime(w.duration) : ''}
                 </div>
@@ -751,18 +772,18 @@ function renderStartWorkout() {
                 <div style="padding-top:12px;display:flex;flex-direction:column;gap:6px;">
                   ${w.exercises.map(ex => `
                     <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;">
-                      <span>${ex.name}</span>
+                      <span>${escapeHtml(ex.name)}</span>
                       <span style="color:var(--text-dim);">
                         ${ex.type === 'cardio' 
                           ? (ex.duration || '-') 
-                          : ex.sets?.filter(s => s.completed).length + '/' + ex.sets?.length + ' sets'
+                          : (ex.sets?.filter(s => s.completed).length || 0) + '/' + (ex.sets?.length || 0) + ' sets'
                         }
                       </span>
                     </div>
                   `).join('')}
                 </div>
                 <div style="display:flex;gap:8px;margin-top:12px;">
-                  <button onclick="event.stopPropagation();startWorkout('${w.name}', ${JSON.stringify(w.exercises.map(e => e.name)).replace(/'/g, "\\'")})" 
+                  <button onclick="event.stopPropagation();startWorkoutFromData('repeat_${w.id}')" 
                     style="flex:1;padding:10px;background:var(--primary-dim);border:1px solid var(--primary);border-radius:8px;color:var(--primary);font-size:12px;cursor:pointer;">
                     Repeat Workout
                   </button>
@@ -776,6 +797,9 @@ function renderStartWorkout() {
           </div>
         `}).join('')}
       </div>
+    ` : ''}
+  `;
+}
     ` : ''}
   `;
 }
@@ -912,6 +936,23 @@ function renderCardioExercise(ex, exIdx) {
 }
 
 function renderProgramsTab() {
+  const selectedProg = PROGRAMS[state.selectedProgram];
+  
+  // Store workout data for click handlers
+  selectedProg.days.forEach((day, i) => {
+    window._workoutData['sched_' + i] = { name: selectedProg.name + ' - ' + day.name, exercises: day.exercises };
+  });
+  
+  let exIdx = 0;
+  Object.values(EXERCISES).forEach(cat => {
+    cat.exercises.forEach(ex => {
+      window._workoutData['quick_' + exIdx] = { name: 'Quick: ' + ex.split(' / ')[0], exercises: [ex] };
+      exIdx++;
+    });
+  });
+  
+  let quickIdx = 0;
+  
   return `
     <div class="card">
       <div class="card-title">${icons.calendar} Quick Start Programs</div>
@@ -928,12 +969,12 @@ function renderProgramsTab() {
     </div>
     
     <div class="card">
-      <div class="card-title">${icons.calendar} ${PROGRAMS[state.selectedProgram].name} Schedule</div>
-      ${PROGRAMS[state.selectedProgram].days.map((day, i) => `
+      <div class="card-title">${icons.calendar} ${selectedProg.name} Schedule</div>
+      ${selectedProg.days.map((day, i) => `
         <div style="padding:14px;background:var(--bg-input);border-radius:10px;margin-bottom:8px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
             <span style="font-weight:500;">${day.name}</span>
-            <button onclick="startWorkout('${PROGRAMS[state.selectedProgram].name} - ${day.name}', ${JSON.stringify(day.exercises).replace(/'/g, "\\'")})"
+            <button onclick="startWorkoutFromData('sched_${i}')"
               style="padding:6px 12px;background:var(--primary);border:none;border-radius:6px;color:#fff;font-size:11px;cursor:pointer;">
               Start
             </button>
@@ -954,16 +995,20 @@ function renderProgramsTab() {
         <div style="margin-bottom:16px;">
           <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px;">${cat.emoji} ${cat.name}</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;">
-            ${cat.exercises.map(ex => `
-              <button onclick="startWorkout('Quick: ${ex.split(' / ')[0]}', ['${ex}'])"
+            ${cat.exercises.map(ex => {
+              const idx = quickIdx++;
+              return `
+              <button onclick="startWorkoutFromData('quick_${idx}')"
                 style="padding:8px 12px;background:var(--bg-input);border:none;border-radius:8px;color:var(--text);font-size:12px;cursor:pointer;">
                 ${ex.split(' / ')[0]}
               </button>
-            `).join('')}
+            `}).join('')}
           </div>
         </div>
       `).join('')}
     </div>
+  `;
+}
   `;
 }
 
